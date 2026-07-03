@@ -1,20 +1,25 @@
 #!/usr/bin/env node
 
 import http from "node:http";
-import net from "node:net";
 import { sendMessage } from "./lark-cli.js";
-import { EventsTailer } from "./events-tailer.js";
+import { waitForReply } from "./events-tailer.js";
 
 const PORT = parseInt(process.env.PORT || "9876", 10);
 const DIRECT_URL = process.env.MINI_BOT_DIRECT_URL || "http://localhost:9877";
 const CHAT_ID = process.env.MINI_BOT_CHAT_ID || "oc_7ea1907fb067c8d49a705c56591460d0";
-const EVENTS_PATH = process.env.MINI_BOT_EVENTS_PATH || "/Users/xpeng/Projects/mini_bot/state/logs/events.jsonl";
+const EVENTS_PATH = process.env.MINI_BOT_EVENTS_PATH || "";
 const LARK_CLI = process.env.LARK_CLI_PATH || "/opt/homebrew/bin/lark-cli";
 const DEFAULT_TIMEOUT = parseInt(process.env.MINI_BOT_TIMEOUT || "180", 10);
 
 let directAvailable = false;
-const tailer = new EventsTailer(EVENTS_PATH);
 let requestLock: Promise<void> = Promise.resolve();
+
+const replyConfig = {
+  mode: "auto" as const,
+  larkCliPath: LARK_CLI,
+  chatId: CHAT_ID,
+  eventsPath: EVENTS_PATH,
+};
 
 interface ChatMessage { role: string; content: string }
 interface ChatRequest {
@@ -85,13 +90,13 @@ async function handleLarkBridge(req: ChatRequest): Promise<Record<string, unknow
   log(`lark-bridge model=${rawModel} prompt=${prompt.slice(0, 60)}...`);
 
   const switchMid = await sendMessage(LARK_CLI, CHAT_ID, `/model ${rawModel}`);
-  const switchReply = await tailer.waitForReply(switchMid, 30);
+  const switchReply = await waitForReply(switchMid, 30, replyConfig);
   if (!switchReply.ok) log(`model switch warning: ${switchReply.text}`);
 
   const messageId = await sendMessage(LARK_CLI, CHAT_ID, prompt);
   log(`sent message_id=${messageId}, waiting for reply...`);
 
-  const reply = await tailer.waitForReply(messageId, DEFAULT_TIMEOUT);
+  const reply = await waitForReply(messageId, DEFAULT_TIMEOUT, replyConfig);
   const text = reply.ok ? reply.text : `Error: ${reply.text}`;
   log(`reply received (${text.length} chars)`);
 

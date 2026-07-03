@@ -4,10 +4,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { sendMessage } from "./lark-cli.js";
-import { EventsTailer } from "./events-tailer.js";
+import { waitForReply } from "./events-tailer.js";
 
 const CHAT_ID = process.env.MINI_BOT_CHAT_ID || "oc_7ea1907fb067c8d49a705c56591460d0";
-const EVENTS_PATH = process.env.MINI_BOT_EVENTS_PATH || "/Users/xpeng/Projects/mini_bot/state/logs/events.jsonl";
+const EVENTS_PATH = process.env.MINI_BOT_EVENTS_PATH || "";
 const LARK_CLI = process.env.LARK_CLI_PATH || "/opt/homebrew/bin/lark-cli";
 
 const server = new McpServer({
@@ -15,7 +15,12 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
-const tailer = new EventsTailer(EVENTS_PATH);
+const replyConfig = {
+  mode: "auto" as const,
+  larkCliPath: LARK_CLI,
+  chatId: CHAT_ID,
+  eventsPath: EVENTS_PATH,
+};
 
 server.tool(
   "chat",
@@ -30,14 +35,14 @@ server.tool(
       if (model) {
         const switchMsg = `/model ${model}`;
         const switchMid = await sendMessage(LARK_CLI, CHAT_ID, switchMsg);
-        const switchReply = await tailer.waitForReply(switchMid, 30);
+        const switchReply = await waitForReply(switchMid, 30, replyConfig);
         if (!switchReply.ok) {
           return { content: [{ type: "text", text: `Failed to switch model: ${switchReply.text}` }], isError: true };
         }
       }
 
       const messageId = await sendMessage(LARK_CLI, CHAT_ID, message);
-      const reply = await tailer.waitForReply(messageId, timeout ?? 120);
+      const reply = await waitForReply(messageId, timeout ?? 120, replyConfig);
 
       return {
         content: [{ type: "text", text: reply.ok ? reply.text : `Error: ${reply.text}` }],
@@ -59,7 +64,7 @@ server.tool(
   async ({ model }) => {
     try {
       const messageId = await sendMessage(LARK_CLI, CHAT_ID, `/model ${model}`);
-      const reply = await tailer.waitForReply(messageId, 30);
+      const reply = await waitForReply(messageId, 30, replyConfig);
       return {
         content: [{ type: "text", text: reply.ok ? reply.text : `Error: ${reply.text}` }],
         isError: !reply.ok,
@@ -78,7 +83,7 @@ server.tool(
   async () => {
     try {
       const messageId = await sendMessage(LARK_CLI, CHAT_ID, "/status");
-      const reply = await tailer.waitForReply(messageId, 30);
+      const reply = await waitForReply(messageId, 30, replyConfig);
       return {
         content: [{ type: "text", text: reply.ok ? reply.text : `Error: ${reply.text}` }],
         isError: !reply.ok,
@@ -97,7 +102,7 @@ server.tool(
   async () => {
     try {
       const messageId = await sendMessage(LARK_CLI, CHAT_ID, "/reset");
-      const reply = await tailer.waitForReply(messageId, 15);
+      const reply = await waitForReply(messageId, 15, replyConfig);
       return {
         content: [{ type: "text", text: reply.ok ? reply.text : `Error: ${reply.text}` }],
         isError: !reply.ok,
