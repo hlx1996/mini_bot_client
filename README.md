@@ -179,6 +179,8 @@ opencode → proxy(:9876) → lark-cli → 飞书消息 → mini_bot → 模型 
 
 **自动检测：** proxy 每次请求前会检查 API Server 是否可达，无需手动切换。
 
+**回复获取：** lark-bridge 模式通过 `lark-cli im +chat-messages-list --as bot` 轮询飞书消息获取回复，无需访问 mini_bot 本地文件系统。如果 `MINI_BOT_EVENTS_PATH` 指向的 events.jsonl 文件存在，会优先使用它（更快，500ms 轮询间隔 vs 3s）。
+
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |
@@ -186,7 +188,7 @@ opencode → proxy(:9876) → lark-cli → 飞书消息 → mini_bot → 模型 
 | `PORT` | `9876` | proxy 监听端口 |
 | `MINI_BOT_DIRECT_URL` | `http://localhost:9877` | mini_bot API Server 地址 |
 | `MINI_BOT_CHAT_ID` | `oc_7ea1907fb...` | 飞书群聊 ID（lark-bridge 模式用） |
-| `MINI_BOT_EVENTS_PATH` | `.../state/logs/events.jsonl` | mini_bot 事件日志路径 |
+| `MINI_BOT_EVENTS_PATH` | （空，自动检测） | 本地 events.jsonl 路径（可选，仅 local 模式需要） |
 | `LARK_CLI_PATH` | `/opt/homebrew/bin/lark-cli` | lark-cli 可执行文件路径 |
 | `MINI_BOT_TIMEOUT` | `180` | lark-bridge 模式等待回复超时（秒） |
 
@@ -230,7 +232,7 @@ mini_bot_client/
 │   ├── proxy.ts          # HTTP API proxy（智能路由）
 │   ├── server.ts         # MCP Server
 │   ├── lark-cli.ts       # lark-cli 封装
-│   └── events-tailer.ts  # events.jsonl 轮询
+│   └── events-tailer.ts  # 回复轮询（lark-cli / events.jsonl 双模式）
 ├── dist/                  # 编译输出
 ├── package.json
 ├── tsconfig.json
